@@ -1,7 +1,7 @@
 CC              := gcc
 CFLAGS          := -ggdb `pkg-config --cflags opencv`
 OBJECTS         := 
-LIBRARIES       := `pkg-config --libs opencv`
+LIBRARIES       := `pkg-config --libs opencv` -lm
 
 .PHONY: all clean
 
