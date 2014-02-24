@@ -187,7 +187,7 @@ int main(int argc, char** argv)
   int fps=0;
   int fps_sec=0;
   int now_sec=0;
-  char fps_text[20];
+  char fps_text[255] = {0};
 
   capture = cvCaptureFromCAM(0);
   cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, resolution_x); 
