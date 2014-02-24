@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include "opencv2/video/tracking.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc_c.h"
@@ -6,12 +8,13 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 
-#define resolution_x 1280/2///1.5
-#define resolution_y 960/2///1.5
+#define resolution_x 1280/2 ///1.5
+#define resolution_y 960/2 ///1.5
 
 int dig_key=0;
 int region_coordinates[10][4];
@@ -37,10 +40,6 @@ static void  update_mhi( IplImage* img, IplImage* dst, int diff_threshold )
   CvSeq* seq;
   CvRect comp_rect;
   double count;
-  double angle;
-  double magnitude;
-  CvScalar color;
-
 
   //int usbdev; /* handle to FTDI device */
   //char message[];
@@ -107,15 +106,11 @@ static void  update_mhi( IplImage* img, IplImage* dst, int diff_threshold )
 
     if( i < 0 ) { // case of the whole image
       comp_rect = cvRect( 0, 0, size.width, size.height );
-      color = CV_RGB(255,255,255);
-      magnitude = 100;
     }
     else { // i-th motion component
       comp_rect = ((CvConnectedComp*)cvGetSeqElem( seq, i ))->rect;
       if( comp_rect.width + comp_rect.height < 25 ) // reject very small components
         continue;
-      color = CV_RGB(255,0,0);
-      magnitude = 30;
     }
 
     // select component ROI
@@ -154,9 +149,8 @@ static void  update_mhi( IplImage* img, IplImage* dst, int diff_threshold )
 
 void myMouseCallback( int event, int x, int y, int flags, void* param)
 {
-
-  IplImage* img = (IplImage*) param;
-
+	(void)flags;
+	(void)param;
   switch( event ){
   case CV_EVENT_MOUSEMOVE: 
     //printf("%d x %d\n", x, y);
@@ -186,16 +180,14 @@ void myMouseCallback( int event, int x, int y, int flags, void* param)
 
 int main(int argc, char** argv)
 {
+	(void)argv;
   IplImage* motion = 0;
   CvCapture* capture = 0;
   struct timeval tv0;
   int fps=0;
   int fps_sec=0;
   int now_sec=0;
-  char fps_text[2];
-  int dig[4];
-  FILE *settings_file;
-  int i,j,N,mm,tmp;
+  char fps_text[255] = {0};
 
   capture = cvCaptureFromCAM(0);
   cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, resolution_x); 
