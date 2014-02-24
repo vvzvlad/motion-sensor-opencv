@@ -1,5 +1,5 @@
 CC              := gcc
-CFLAGS          := -ggdb `pkg-config --cflags opencv`
+CFLAGS          := -ggdb `pkg-config --cflags opencv` -Wall -Wextra -pedantic -std=c99
 OBJECTS         := 
 LIBRARIES       := `pkg-config --libs opencv` -lm
 
