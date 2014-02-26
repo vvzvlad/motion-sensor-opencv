@@ -241,6 +241,10 @@ void myMouseCallback( int event, int x, int y, int flags, void* param)
   }
 }
 
+void usage(char *argv0) {
+	printf("Usage: %s [-s]\n"\
+			" -s :Setup movement detection regions before starting motion detection loop\n", argv0);
+}
 
 int main(int argc, char** argv)
 {
@@ -252,6 +256,31 @@ int main(int argc, char** argv)
   int fps_sec=0;
   int now_sec=0;
   char fps_text[255] = {0};
+
+	/*
+	 * Check if setup regions is chosen
+	 */
+	int need_setup_regions = 0;
+
+	switch (argc) {
+		case 1:
+			printf("Starting movement detection without regions setup.\n");
+			need_setup_regions = 0;
+			break;
+		case 2:
+			if (strcmp(argv[1],"-s") == 0) {
+				printf("Starting regions setup before movement detection.\n");
+				need_setup_regions = 1;
+			} else {
+				fprintf(stderr, "Bad argument.");
+				usage(argv[0]);
+				exit(1);
+			}
+			break;
+		default:
+			usage(argv[0]);
+			exit(2);
+	}
 
   /*
    * setup signal actions (SIGINT - termination, SIGUSR1 - statistics, other - ignore)
@@ -324,7 +353,7 @@ int main(int argc, char** argv)
              region_coordinates[i_regions][3]);
     }
 
-    if( argc == 1) {
+    if(need_setup_regions) {
 
       printf("Starting regions setup.\n");
       for(run = 1; run;)
@@ -444,7 +473,9 @@ int main(int argc, char** argv)
     cvReleaseCapture( &capture );
     cvReleaseImage(&motion);
     cvDestroyWindow( "Motion" );
-  }
+  } else {
+		fprintf(stderr, "Cannot open default camera! Terminating.\n");
+	}
 
   return 0;
   fcloseall();
