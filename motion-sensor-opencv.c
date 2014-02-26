@@ -47,27 +47,27 @@ static unsigned long frames_processed = 0;
 static int run = 1;
 
 static void signal_handler(int sig) {
-	switch (sig) {
-		case SIGINT:
-			run = 0;
-			printf("Stop processing.\n");
-			break;
-		case SIGUSR1:
-			printf("Statistics:\n"\
-						 "-frames processed: %lu", frames_processed);
-			break;
-		default:
-			fprintf(stderr, "Unknown signal for processing has been received.");
-			break;
-	}
+  switch (sig) {
+    case SIGINT:
+      run = 0;
+      printf("Stop processing.\n");
+      break;
+    case SIGUSR1:
+      printf("Statistics:\n"\
+             "-frames processed: %lu", frames_processed);
+      break;
+    default:
+      fprintf(stderr, "Unknown signal for processing has been received.");
+      break;
+  }
 }
 
 static void sigusr1_handler(int sig) {
-	signal_handler(sig);
+  signal_handler(sig);
 }
 
 static void sigint_handler(int sig) {
-	signal_handler(sig);
+  signal_handler(sig);
 }
 
 /*
@@ -78,12 +78,12 @@ static void  update_mhi( IplImage* img, IplImage* dst, int diff_threshold )
   double timestamp = (double)clock()/CLOCKS_PER_SEC; // get current time in seconds
   CvSize size = cvSize(img->width,img->height); // get current frame size
 
-	frames_processed++;
+  frames_processed++;
 
   /*
-	 * Allocate images at the beginning or
+   * Allocate images at the beginning or
    * reallocate them if frame size has changed
-	 */
+   */
   if( !mhi || mhi->width != size.width || mhi->height != size.height ) {
     if( buf == 0 ) {
       buf = (IplImage**)malloc(N*sizeof(buf[0]));
@@ -110,7 +110,7 @@ static void  update_mhi( IplImage* img, IplImage* dst, int diff_threshold )
   cvCvtColor( img, buf[last], CV_BGR2GRAY ); // convert frame to grayscale
 
   int idx1 = last,
-			idx2 = last = (last + 1) % N;          // index of (last - (N-1))th frame
+      idx2 = last = (last + 1) % N;          // index of (last - (N-1))th frame
 
   IplImage *silh = buf[idx2];
   cvAbsDiff( buf[idx1], buf[idx2], silh );  // get difference between frames
@@ -119,32 +119,32 @@ static void  update_mhi( IplImage* img, IplImage* dst, int diff_threshold )
   cvUpdateMotionHistory( silh, mhi, timestamp, MHI_DURATION );    // update MHI
 
   /*
-	 * convert MHI to green 8u image
-	 */
+   * convert MHI to green 8u image
+   */
   cvCvtScale( mhi, mask, 255./MHI_DURATION,
   (MHI_DURATION - timestamp)*255./MHI_DURATION );
   cvZero( dst );
   cvMerge( 0, mask, 0, 0, dst );
 
   /*
-	 * calculate motion gradient orientation and valid orientation mask
-	 */
+   * calculate motion gradient orientation and valid orientation mask
+   */
   cvCalcMotionGradient( mhi, mask, orient, MAX_TIME_DELTA, MIN_TIME_DELTA, 3 );
 
   if( !storage ) storage = cvCreateMemStorage(0);
   else cvClearMemStorage(storage);
 
   /*
-	 * segment motion: get sequence of motion components
-	 * segmask is marked motion components map. It is not used further
-	 */
+   * segment motion: get sequence of motion components
+   * segmask is marked motion components map. It is not used further
+   */
   CvSeq *seq = cvSegmentMotion( mhi, segmask, storage, timestamp, MAX_TIME_DELTA );
   CvRect comp_rect;
 
   /*
-	 * iterate through the motion components,
+   * iterate through the motion components,
    * One more iteration (i == -1) corresponds to the whole image (global motion)
-	 */
+   */
   for( int i = -1; i < seq->total; i++ ) {
 
     if( i < 0 ) { // case of the whole image
@@ -156,8 +156,8 @@ static void  update_mhi( IplImage* img, IplImage* dst, int diff_threshold )
     }
 
     /*
-		 * selection of component ROI (Region Of Interest) && counting number of points && reset ROI
-		 */
+     * selection of component ROI (Region Of Interest) && counting number of points && reset ROI
+     */
     cvSetImageROI( silh,   comp_rect );
     cvSetImageROI( mhi,    comp_rect );
     cvSetImageROI( orient, comp_rect );
@@ -172,33 +172,33 @@ static void  update_mhi( IplImage* img, IplImage* dst, int diff_threshold )
 
     if ( count < comp_rect.width*comp_rect.height * LITTLE_MOTION_POINTS_PERCENT / 100 ) continue; // check for the case of little motion (too few points has moved)
 
-		/*
-		 * Number of points is huge, take note this motion && reflect it at user output frame
-		 */
+    /*
+     * Number of points is huge, take note this motion && reflect it at user output frame
+     */
     if ( comp_rect.width != resolution_x && comp_rect.height != resolution_y )
     {
       cvRectangle(dst,
-									cvPoint(comp_rect.x + comp_rect.width/2+5,comp_rect.y + comp_rect.height/2+5),
-									cvPoint(comp_rect.x + comp_rect.width/2-5,comp_rect.y + comp_rect.height/2-5),
-									CV_RGB(255,0,0), 2, CV_AA, 0 );
+                  cvPoint(comp_rect.x + comp_rect.width/2+5,comp_rect.y + comp_rect.height/2+5),
+                  cvPoint(comp_rect.x + comp_rect.width/2-5,comp_rect.y + comp_rect.height/2-5),
+                  CV_RGB(255,0,0), 2, CV_AA, 0 );
 
       for (int i_mass = 0; i_mass < REGIONS_CNT; i_mass++)
       {
         if (   comp_rect.x + comp_rect.width/2 <=  region_coordinates[i_mass][2]
-						&& comp_rect.x + comp_rect.width/2 >=  region_coordinates[i_mass][0]
-						&& comp_rect.y + comp_rect.height/2 <= region_coordinates[i_mass][3]
-						&& comp_rect.y + comp_rect.height/2 >= region_coordinates[i_mass][1] )
+            && comp_rect.x + comp_rect.width/2 >=  region_coordinates[i_mass][0]
+            && comp_rect.y + comp_rect.height/2 <= region_coordinates[i_mass][3]
+            && comp_rect.y + comp_rect.height/2 >= region_coordinates[i_mass][1] )
         {
           cvRectangle(dst, 
-							        cvPoint(region_coordinates[i_mass][0], region_coordinates[i_mass][1]),
-											cvPoint(region_coordinates[i_mass][2], region_coordinates[i_mass][3]),
-											CV_RGB(0,0,255), 2, CV_AA, 0 );
+                      cvPoint(region_coordinates[i_mass][0], region_coordinates[i_mass][1]),
+                      cvPoint(region_coordinates[i_mass][2], region_coordinates[i_mass][3]),
+                      CV_RGB(0,0,255), 2, CV_AA, 0 );
 
           printf("Detect motion in region %d\n",i_mass);
 
 #if FTDI_OUTPUT == 1
-					char command[strlen("region\n") + (int)log10(REGIONS_CNT) + 1];
-					sprintf(command, "region:%d\n", i_mass);
+          char command[strlen("region\n") + (int)log10(REGIONS_CNT) + 1];
+          sprintf(command, "region:%d\n", i_mass);
           write(usbdev, command, 2);
 #endif
         }
@@ -209,8 +209,9 @@ static void  update_mhi( IplImage* img, IplImage* dst, int diff_threshold )
 
 void myMouseCallback( int event, int x, int y, int flags, void* param)
 {
-	(void)flags;
-	(void)param;
+  (void)flags;
+  (void)param;
+
   switch( event ){
   case CV_EVENT_MOUSEMOVE:
     //printf("%d x %d\n", x, y);
@@ -219,9 +220,9 @@ void myMouseCallback( int event, int x, int y, int flags, void* param)
   case CV_EVENT_LBUTTONDOWN:
     //printf("%d x %d\n", region_coordinates[dig_key][0], region_coordinates[dig_key][1]);
     if (   region_coordinates[dig_key][0] != 0 
-				&& region_coordinates[dig_key][1] != 0
-				&& region_coordinates[dig_key][2] == 0
-				&& region_coordinates[dig_key][3] == 0 )
+        && region_coordinates[dig_key][1] != 0
+        && region_coordinates[dig_key][2] == 0
+        && region_coordinates[dig_key][3] == 0 )
     {
       region_coordinates[dig_key][2]=x;
       region_coordinates[dig_key][3]=y;
@@ -243,7 +244,7 @@ void myMouseCallback( int event, int x, int y, int flags, void* param)
 
 int main(int argc, char** argv)
 {
-	(void)argv;
+  (void)argv;
   IplImage* motion = 0;
   CvCapture* capture = 0;
   struct timeval tv0;
@@ -252,35 +253,35 @@ int main(int argc, char** argv)
   int now_sec=0;
   char fps_text[255] = {0};
 
-	/*
-	 * setup signal actions (SIGINT - termination, SIGUSR1 - statistics, other - ignore)
-	 */
-	struct sigaction sigact;
-	sigact.sa_flags = 0;
-	sigfillset(&sigact.sa_mask);
-	sigdelset(&sigact.sa_mask, SIGINT);
-	sigdelset(&sigact.sa_mask, SIGUSR1);
-	pthread_sigmask(SIG_BLOCK, &sigact.sa_mask, NULL);
+  /*
+   * setup signal actions (SIGINT - termination, SIGUSR1 - statistics, other - ignore)
+   */
+  struct sigaction sigact;
+  sigact.sa_flags = 0;
+  sigfillset(&sigact.sa_mask);
+  sigdelset(&sigact.sa_mask, SIGINT);
+  sigdelset(&sigact.sa_mask, SIGUSR1);
+  pthread_sigmask(SIG_BLOCK, &sigact.sa_mask, NULL);
 
-	sigact.sa_handler = sigusr1_handler;
-	sigaction(SIGUSR1, &sigact, NULL);
+  sigact.sa_handler = sigusr1_handler;
+  sigaction(SIGUSR1, &sigact, NULL);
 
-	sigact.sa_handler = sigint_handler;
-	sigaction(SIGINT, &sigact, NULL);
+  sigact.sa_handler = sigint_handler;
+  sigaction(SIGINT, &sigact, NULL);
 
-	/*
-	 * FTDI output setup
-	 */
+  /*
+   * FTDI output setup
+   */
 #if FTDI_OUTPUT == 1
-	system("stty -F /dev/ttyUSB0 115200 cs8 -cstopb -parity -icanon min 1 time 1");
-	if ( 0 > usbdev = open("/dev/ttyUSB0", O_RDWR)) {
-		fprintf(stderr, "Cannot open FTDI device.\n");
-	}
+  system("stty -F /dev/ttyUSB0 115200 cs8 -cstopb -parity -icanon min 1 time 1");
+  if ( 0 > usbdev = open("/dev/ttyUSB0", O_RDWR)) {
+    fprintf(stderr, "Cannot open FTDI device.\n");
+  }
 #endif
 
-	/*
-	 * Use default capture device (its supposed that there is only one cam in the system)
-	 */
+  /*
+   * Use default capture device (its supposed that there is only one cam in the system)
+   */
   capture = cvCaptureFromCAM(0);
   cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, resolution_x);
   cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT, resolution_y);
@@ -302,9 +303,9 @@ int main(int argc, char** argv)
       }
       else
       {
-      fwrite(region_coordinates, 1, sizeof(region_coordinates), fd);
-      fclose(fd);
-      printf("File created, please restart program\n");
+        fwrite(region_coordinates, 1, sizeof(region_coordinates), fd);
+        fclose(fd);
+        printf("File created, please restart program\n");
       }
       return 0;
     }
@@ -317,41 +318,41 @@ int main(int argc, char** argv)
     for (int i_regions = 0; i_regions < REGIONS_CNT; i_regions++)
     {
       printf("%d %d %d %d\n", 
-					   region_coordinates[i_regions][0],
-						 region_coordinates[i_regions][1],
-						 region_coordinates[i_regions][2],
-						 region_coordinates[i_regions][3]);
+             region_coordinates[i_regions][0],
+             region_coordinates[i_regions][1],
+             region_coordinates[i_regions][2],
+             region_coordinates[i_regions][3]);
     }
 
     if( argc == 1) {
 
-			printf("Starting regions setup.\n");
+      printf("Starting regions setup.\n");
       for(run = 1; run;)
       {
         IplImage* image = cvQueryFrame( capture );
         cvFlip(image, image, 1);
         cvSetMouseCallback( "Motion", myMouseCallback, (void*) image);
         if (   region_coordinates[dig_key][0] != 0 
-						&& region_coordinates[dig_key][1] != 0 
-						&& region_coordinates[dig_key][2] == 0 
-						&& region_coordinates[dig_key][3] == 0 )
-				{
+            && region_coordinates[dig_key][1] != 0 
+            && region_coordinates[dig_key][2] == 0 
+            && region_coordinates[dig_key][3] == 0 )
+        {
           cvRectangle(image, 
-							cvPoint(region_coordinates[dig_key][0],  region_coordinates[dig_key][1]),
-							cvPoint(region_coordinates[dig_key][0]+1,region_coordinates[dig_key][1]+1),
-							CV_RGB(0,0,255), 2, CV_AA, 0 );
-				}
+              cvPoint(region_coordinates[dig_key][0],  region_coordinates[dig_key][1]),
+              cvPoint(region_coordinates[dig_key][0]+1,region_coordinates[dig_key][1]+1),
+              CV_RGB(0,0,255), 2, CV_AA, 0 );
+        }
 
         if (   region_coordinates[dig_key][0] != 0 
-						&& region_coordinates[dig_key][1] != 0
-						&& region_coordinates[dig_key][2] != 0
-						&& region_coordinates[dig_key][3] != 0 )
-				{	
+            && region_coordinates[dig_key][1] != 0
+            && region_coordinates[dig_key][2] != 0
+            && region_coordinates[dig_key][3] != 0 )
+        {  
           cvRectangle(image, 
-							cvPoint(region_coordinates[dig_key][0],region_coordinates[dig_key][1]),
-							cvPoint(region_coordinates[dig_key][2],region_coordinates[dig_key][3]),
-							CV_RGB(0,0,255), 2, CV_AA, 0 );
-				}
+              cvPoint(region_coordinates[dig_key][0],region_coordinates[dig_key][1]),
+              cvPoint(region_coordinates[dig_key][2],region_coordinates[dig_key][3]),
+              CV_RGB(0,0,255), 2, CV_AA, 0 );
+        }
         cvShowImage( "Motion", image );
 
         char c = cvWaitKey(20);
@@ -372,10 +373,10 @@ int main(int argc, char** argv)
         if (c == 100 || c == 68) //key "d"
         {
           printf("Region cordinates(key): %d %d %d %d\n",
-							region_coordinates[dig_key][0],
-							region_coordinates[dig_key][1],
-							region_coordinates[dig_key][2],
-							region_coordinates[dig_key][3]);
+              region_coordinates[dig_key][0],
+              region_coordinates[dig_key][1],
+              region_coordinates[dig_key][2],
+              region_coordinates[dig_key][3]);
 
           printf("Key: %d/%d\n", dig_key, c);
         }
@@ -391,12 +392,12 @@ int main(int argc, char** argv)
       }
     }
 
-		printf("Starting motion detection.\n");
+    printf("Starting motion detection.\n");
     for(run = 1;run;)
     {
-			/*
-			 * Capture frame && alloc mem for output frame if needed
-			 */
+      /*
+       * Capture frame && alloc mem for output frame if needed
+       */
       IplImage* image = cvQueryFrame( capture );
 
       if( !image )
@@ -411,14 +412,14 @@ int main(int argc, char** argv)
         motion->origin = image->origin;
       }
 
-			/*
-			 * Compute output frame
-			 */
+      /*
+       * Compute output frame
+       */
       update_mhi( image, motion, 30 );
 
-			/*
-			 * FPS computation && printing to output frame
-			 */
+      /*
+       * FPS computation && printing to output frame
+       */
       gettimeofday(&tv0,0);
       now_sec=tv0.tv_sec;
       if (fps_sec == now_sec)
@@ -434,9 +435,9 @@ int main(int argc, char** argv)
       cvPutText(motion, fps_text, cvPoint(5, 20), &font, CV_RGB(255,255,255));
       cvShowImage( "Motion", motion );
 
-			/*
-			 * Needed to switch context and allow output frame to be shown to user
-			 */
+      /*
+       * Needed to switch context and allow output frame to be shown to user
+       */
       cvWaitKey(10);
     }
 
