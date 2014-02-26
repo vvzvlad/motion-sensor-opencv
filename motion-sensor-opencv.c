@@ -12,12 +12,19 @@
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
+#include <signal.h>
+#include <pthread.h>
+
+#define FTDI_OUTPUT 0
+int usbdev = -1; /* handle to FTDI device */
 
 #define resolution_x 1280/2 ///1.5
 #define resolution_y 960/2 ///1.5
 
 int dig_key=0;
-int region_coordinates[10][4];
+
+#define REGIONS_CNT 10
+int region_coordinates[REGIONS_CNT][4];
 const double MHI_DURATION = 0.5;
 const double MAX_TIME_DELTA = 0.5;
 const double MIN_TIME_DELTA = 0.05;
@@ -25,11 +32,38 @@ const int N = 2; // cyclic frame buffer
 IplImage **buf = 0;
 int last = 0;
 
-IplImage *mhi = 0; 
+IplImage *mhi = 0;
 IplImage *orient = 0; // orientation
 IplImage *mask = 0; // valid orientation mask
 IplImage *segmask = 0; // motion segmentation map
 CvMemStorage* storage = 0; // temporary storage
+
+static unsigned long frames_processed = 0;
+static int run = 1;
+
+static void signal_handler(int sig) {
+	switch (sig) {
+		case SIGINT:
+			run = 0;
+			printf("Stop processing. Exit.\n");
+			break;
+		case SIGUSR1:
+			printf("Statistics:\n"\
+						 "-frames processed: %lu", frames_processed);
+			break;
+		default:
+			fprintf(stderr, "Unknown signal for processing has been received.");
+			break;
+	}
+}
+
+static void sigusr1_handler(int sig) {
+	signal_handler(sig);
+}
+
+static void sigint_handler(int sig) {
+	signal_handler(sig);
+}
 
 static void  update_mhi( IplImage* img, IplImage* dst, int diff_threshold )
 {
@@ -41,12 +75,7 @@ static void  update_mhi( IplImage* img, IplImage* dst, int diff_threshold )
   CvRect comp_rect;
   double count;
 
-  //int usbdev; /* handle to FTDI device */
-  //char message[];
-  //system("stty -F /dev/ttyUSB0 115200 cs8 -cstopb -parity -icanon min 1 time 1");
-  //usbdev = open("/dev/ttyUSB0", O_RDWR);
-  //FILE * ann = fopen("/dev/ttyUSB0", "r+");
-
+	frames_processed++;
 
   // allocate images at the beginning or
   // reallocate them if the frame size is changed
@@ -139,7 +168,6 @@ static void  update_mhi( IplImage* img, IplImage* dst, int diff_threshold )
         {
           cvRectangle(dst, cvPoint(region_coordinates[i_mass][0],region_coordinates[i_mass][1]), cvPoint(region_coordinates[i_mass][2],region_coordinates[i_mass][3]), CV_RGB(0,0,255), 2, CV_AA, 0 );
           printf("Detect motion in region %d\n",i_mass);
-          //fwrite( message, sizeof(char), 8, ann);
           //write(usbdev, command, 2);
         }
       }
@@ -189,11 +217,38 @@ int main(int argc, char** argv)
   int now_sec=0;
   char fps_text[255] = {0};
 
+	/*
+	 * setup signal actions (SIGINT - termination, SIGUSR1 - statistics, other - ignore)
+	 */
+	struct sigaction sigact;
+	sigact.sa_flags = 0;
+	sigfillset(&sigact.sa_mask);
+	sigdelset(&sigact.sa_mask, SIGINT);
+	sigdelset(&sigact.sa_mask, SIGUSR1);
+	pthread_sigmask(SIG_BLOCK, &sigact.sa_mask, NULL);
+
+	sigact.sa_handler = sigusr1_handler;
+	sigaction(SIGUSR1, &sigact, NULL);
+
+	sigact.sa_handler = sigint_handler;
+	sigaction(SIGINT, &sigact, NULL);
+
+	/*
+	 * FTDI output
+	 */
+#if FTDI_OUTPUT == 1
+	system("stty -F /dev/ttyUSB0 115200 cs8 -cstopb -parity -icanon min 1 time 1");
+	if ( 0 > usbdev = open("/dev/ttyUSB0", O_RDWR)) {
+		fprintf(stderr, "Cannot open FTDI device.\n");
+	}
+#endif
+
   capture = cvCaptureFromCAM(0);
   cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_WIDTH, resolution_x); 
   cvSetCaptureProperty(capture, CV_CAP_PROP_FRAME_HEIGHT, resolution_y); 
   CvFont font;
   cvInitFont(&font, CV_FONT_HERSHEY_COMPLEX_SMALL, 1.0, 1.0, 1,1,8);
+
   if( capture )
   {
     cvNamedWindow( "Motion", 1 );
@@ -227,7 +282,7 @@ int main(int argc, char** argv)
 
 
     if( argc == 1) {      
-      for(;;)
+      for(run = 1; run;)
       {
         IplImage* image = cvQueryFrame( capture );
         cvFlip(image, image, 1);
@@ -271,7 +326,7 @@ int main(int argc, char** argv)
       }
     }
 
-    for(;;)
+    for(run = 1;run;)
     {
       IplImage* image = cvQueryFrame( capture );
       if( !image )
@@ -293,7 +348,6 @@ int main(int argc, char** argv)
       else 
       {
         fps_sec=now_sec;
-        //printf("FPS: %u\n",fps);
         snprintf(fps_text,254,"%d",fps); 
         fps=0;
       }
@@ -302,8 +356,7 @@ int main(int argc, char** argv)
       cvPutText(motion, fps_text, cvPoint(5, 20), &font, CV_RGB(255,255,255));
       cvShowImage( "Motion", motion );
 
-      if( cvWaitKey(10) >= 0 )
-        break;
+      cvWaitKey(10);
     }
     cvReleaseCapture( &capture );
     cvReleaseImage(&motion);
@@ -312,7 +365,8 @@ int main(int argc, char** argv)
 
   return 0;
   fcloseall();
-  //close(usbdev);
-
+#if FTDI_OUTPUT == 1
+  close(usbdev);
+#endif
 }
 
